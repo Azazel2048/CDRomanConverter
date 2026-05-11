@@ -2,7 +2,7 @@
 
 function convertirARabico() {
     const romano = document.getElementById("romano").value.toUpperCase();
-    const valores = {I:1, V:2, X:10, L:50, C:100, D:500, M:1000};
+    const valores = {I:1, V:5, X:10, L:50, C:100, D:500, M:1000};
     let total = 0;
 
     for (let i = 0; i < romano.length; i++) {
