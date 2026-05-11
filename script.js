@@ -30,7 +30,7 @@ function romanToInteger(romano) {
     if (!romano) throw new Error("Input must be a valid Roman numeral.");
 
     romano = romano.toUpperCase();
-    const valores = {I:1, V:2, X:10, L:50, C:100, D:500, M:1000};
+    const valores = {I:1, V:5, X:10, L:50, C:100, D:500, M:1000};
 
     let total = 0;
 
