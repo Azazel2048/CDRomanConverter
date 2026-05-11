@@ -1,4 +1,4 @@
-name: CI/CD - Test & Deploy
+name: CI/CD - Lint, Test & Deploy
 
 on:
   push:
@@ -12,23 +12,71 @@ permissions:
   id-token: write
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Install dependencies
-        run: npm install -g mocha chai jsdom
+        run: npm install
 
-      - name: Run tests
+      - name: Run ESLint
+        run: npm run lint
+
+  test:
+    needs: lint    
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
         run: |
-          node --experimental-vm-modules -e "
-          const { JSDOM } = require('jsdom');
-          const dom = new JSDOM('', { runScripts: 'dangerously' });
-          const fs = require('fs');
-          dom.window.eval(fs.readFileSync('script.js', 'utf8'));
-          global.romanToInteger = dom.window.romanToInteger;
-          global.integerToRoman = dom.window.integerToRoman;
-          " 2>/dev/null || true
+          npm install
+          npm install playwright
+          npx playwright install chromium --with-deps
 
-          npx mocha --require ./test-setup.cjs tests.js
+      - name: Run browser tests
+        run: |
+          node -e "
+          const { chromium } = require('playwright');
+          const path = require('path');
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage();
+            const url = 'file://' + path.resolve('test.html');
+            await page.goto(url);
+            await page.waitForSelector('.passes, .failures', { timeout: 10000 });
+            const failures = await page.locator('#mocha-stats .failures em').textContent();
+            const passes = await page.locator('#mocha-stats .passes em').textContent();
+            console.log('Passed:', passes, '| Failed:', failures);
+            await browser.close();
+            if (parseInt(failures) > 0) process.exit(1);
+          })();
+          "
+
+  deploy:
+    needs: test 
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v4
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
